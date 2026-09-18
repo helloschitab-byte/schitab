@@ -6,7 +6,7 @@ async function requireAdmin() {
   const { data: { session } } = await supabaseClient.auth.getSession();
 
   if (!session) {
-    window.location.href = '/index.html';
+    window.location.href = '/admin/login.html';
     return null;
   }
 
@@ -18,7 +18,7 @@ async function requireAdmin() {
 
   if (error || !profile || !profile.is_admin) {
     await supabaseClient.auth.signOut();
-    window.location.href = '/index.html?denied=1';
+    window.location.href = '/admin/login.html?denied=1';
     return null;
   }
 
@@ -27,5 +27,5 @@ async function requireAdmin() {
 
 async function logoutAdmin() {
   await supabaseClient.auth.signOut();
-  window.location.href = '/index.html';
+  window.location.href = '/admin/login.html';
 }
