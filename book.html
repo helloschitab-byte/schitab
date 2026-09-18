@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book — Schitab</title>
+<link rel="stylesheet" href="/assets/css/style.css">
+<link rel="stylesheet" href="/assets/css/storefront.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-row">
+    <a href="/index.html" class="site-logo" style="text-decoration:none;">📚 Schitab</a>
+    <input class="site-search" type="text" placeholder="Search books, authors, exams..." disabled>
+    <button class="cart-btn" onclick="window.location.href='/browse.html'">🛒<span class="cart-badge" id="cartBadge" style="display:none;">0</span></button>
+  </div>
+</header>
+
+<div id="productContent">
+  <div class="text-muted" style="padding:40px; text-align:center;">Loading book...</div>
+</div>
+
+<footer class="site-footer">
+  Schitab — Books for becoming.
+</footer>
+
+<script src="/assets/js/supabase-client.js"></script>
+<script src="/assets/js/ui.js"></script>
+<script src="/assets/js/cart.js"></script>
+<script>
+  const bookId = new URLSearchParams(window.location.search).get('id');
+  let currentBook = null;
+  let usedListings = [];
+  let selectedOption = 'new'; // 'new' or a used_books.id
+
+  async function loadBook() {
+    const content = document.getElementById('productContent');
+
+    if (!bookId) {
+      content.innerHTML = '<div class="text-muted" style="padding:40px; text-align:center;">No book specified.</div>';
+      return;
+    }
+
+    const { data: book, error } = await supabaseClient
+      .from('books')
+      .select('*, categories(name)')
+      .eq('id', bookId)
+      .single();
+
+    if (error || !book) {
+      content.innerHTML = '<div class="text-muted" style="padding:40px; text-align:center;">Book not found.</div>';
+      return;
+    }
+
+    currentBook = book;
+
+    const { data: used } = await supabaseClient
+      .from('used_books')
+      .select('*')
+      .eq('book_id', bookId)
+      .eq('status', 'approved');
+
+    usedListings = used || [];
+
+    document.title = book.title + ' — Schitab';
+    renderProduct();
+  }
+
+  function renderProduct() {
+    const book = currentBook;
+    const discount = book.mrp > book.price ? Math.round((1 - book.price / book.mrp) * 100) : 0;
+
+    const price = selectedOption === 'new' ? book.price : usedListings.find(u => u.id === selectedOption)?.price;
+    const showMrp = selectedOption === 'new' && discount > 0;
+
+    document.getElementById('productContent').innerHTML = `
+      <div class="product-wrap">
+        <div>
+          <img class="product-img" src="${book.cover_url || 'https://placehold.co/320x420/EEF0F4/999?text=No+Cover'}" alt="${escapeHtml(book.title)}">
+        </div>
+        <div>
+          <div class="product-meta">${escapeHtml(book.categories?.name || '')}</div>
+          <h1 class="product-title">${escapeHtml(book.title)}</h1>
+          <div class="product-meta">${book.author ? 'by ' + escapeHtml(book.author) : ''} ${book.publisher ? '· ' + escapeHtml(book.publisher) : ''}</div>
+
+          <div class="product-price-row">
+            <span class="product-price">${formatPrice(price)}</span>
+            ${showMrp ? `<span class="product-mrp">${formatPrice(book.mrp)}</span>` : ''}
+          </div>
+          ${showMrp ? `<div class="product-save">Save ${discount}% off MRP</div>` : ''}
+
+          ${usedListings.length > 0 ? `
+            <div class="condition-tabs">
+              <span class="condition-tab ${selectedOption === 'new' ? 'active' : ''}" onclick="selectOption('new')">New</span>
+              ${usedListings.map(u => `<span class="condition-tab ${selectedOption === u.id ? 'active' : ''}" onclick="selectOption('${u.id}')">Used — ${escapeHtml(u.condition)}</span>`).join('')}
+            </div>
+          ` : ''}
+
+          <div class="product-actions">
+            <button class="btn btn-outline" onclick="handleAddToCart()">Add to Cart</button>
+            <button class="btn btn-accent" onclick="handleAddToCart()">Buy Now</button>
+          </div>
+
+          ${book.description ? `
+            <div class="product-desc-title">About this book</div>
+            <div class="product-desc-text">${escapeHtml(book.description)}</div>
+          ` : ''}
+
+          <div class="product-meta mt-16">
+            ${book.publisher ? `Publisher: ${escapeHtml(book.publisher)}<br>` : ''}
+            ${book.edition ? `Edition: ${escapeHtml(book.edition)}<br>` : ''}
+            ${book.isbn ? `ISBN: ${escapeHtml(book.isbn)}<br>` : ''}
+            Language: ${escapeHtml(book.language || 'English')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function selectOption(option) {
+    selectedOption = option;
+    renderProduct();
+  }
+
+  function handleAddToCart() {
+    addToCart(bookId, 1);
+  }
+
+  loadBook();
+  updateCartBadge();
+</script>
+
+</body>
+</html>
