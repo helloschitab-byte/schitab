@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browse Books — Schitab</title>
+<link rel="stylesheet" href="/assets/css/style.css">
+<link rel="stylesheet" href="/assets/css/storefront.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-row">
+    <a href="/index.html" class="site-logo" style="text-decoration:none;">📚 Schitab</a>
+    <input class="site-search" type="text" placeholder="Search books, authors, exams..." disabled>
+    <button class="cart-btn">🛒<span class="cart-badge" id="cartBadge" style="display:none;">0</span></button>
+  </div>
+</header>
+
+<div class="filter-bar" id="filterBar">
+  <span class="filter-chip active" data-slug="">All</span>
+</div>
+
+<div class="book-grid" id="booksGrid">
+  <div class="text-muted" style="grid-column:1/-1; padding:30px; text-align:center;">Loading books...</div>
+</div>
+
+<footer class="site-footer">
+  Schitab — Books for becoming.<br>
+  <a href="/admin/login.html" class="hint">Admin</a>
+</footer>
+
+<script src="/assets/js/supabase-client.js"></script>
+<script src="/assets/js/ui.js"></script>
+<script src="/assets/js/cart.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  let activeCat = params.get('cat') || '';
+
+  async function loadFilters() {
+    const { data } = await supabaseClient
+      .from('categories')
+      .select('*')
+      .is('parent_id', null)
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    const bar = document.getElementById('filterBar');
+    if (!data) return;
+
+    bar.innerHTML = `<span class="filter-chip ${!activeCat ? 'active' : ''}" data-slug="">All</span>` +
+      data.map(cat => `<span class="filter-chip ${activeCat === cat.slug ? 'active' : ''}" data-slug="${cat.slug}">${escapeHtml(cat.name)}</span>`).join('');
+
+    bar.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        activeCat = chip.dataset.slug;
+        bar.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const url = new URL(window.location);
+        if (activeCat) url.searchParams.set('cat', activeCat); else url.searchParams.delete('cat');
+        window.history.replaceState({}, '', url);
+        loadBooks();
+      });
+    });
+  }
+
+  async function loadBooks() {
+    const grid = document.getElementById('booksGrid');
+    grid.innerHTML = '<div class="text-muted" style="grid-column:1/-1; padding:30px; text-align:center;">Loading books...</div>';
+
+    let query = supabaseClient.from('books').select('*, categories(slug)').eq('is_active', true);
+
+    if (activeCat) {
+      const { data: catRow } = await supabaseClient.from('categories').select('id').eq('slug', activeCat).single();
+      if (catRow) query = query.eq('category_id', catRow.id);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      grid.innerHTML = '<div class="text-muted" style="grid-column:1/-1; padding:30px; text-align:center;">No books in this category yet — more coming soon.</div>';
+      return;
+    }
+
+    grid.innerHTML = data.map(book => {
+      const discount = book.mrp > book.price ? Math.round((1 - book.price / book.mrp) * 100) : 0;
+      return `
+        <a class="book-card" href="/book.html?id=${book.id}">
+          <img class="book-card-img" src="${book.cover_url || 'https://placehold.co/300x400/EEF0F4/999?text=No+Cover'}" alt="${escapeHtml(book.title)}">
+          <div class="book-card-body">
+            <div class="book-card-title">${escapeHtml(book.title)}</div>
+            <div class="book-card-author">${escapeHtml(book.author || book.publisher || '')}</div>
+            <div>
+              <span class="book-card-price">${formatPrice(book.price)}</span>
+              ${discount > 0 ? `<span class="book-card-mrp">${formatPrice(book.mrp)}</span>` : ''}
+            </div>
+          </div>
+        </a>
+      `;
+    }).join('');
+  }
+
+  loadFilters();
+  loadBooks();
+  updateCartBadge();
+</script>
+
+</body>
+</html>
