@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — Schitab</title>
+<link rel="stylesheet" href="/assets/css/style.css">
+<link rel="stylesheet" href="/assets/css/storefront.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-row">
+    <div class="site-logo"><a href="/index.html" style="text-decoration:none;color:inherit;">📚 Schitab</a></div>
+  </div>
+</header>
+
+<div style="max-width:500px;margin:20px auto;padding:0 16px;">
+  <h2 class="section-title">Checkout</h2>
+
+  <div id="orderSummary" style="margin-bottom:20px;">Loading your cart...</div>
+
+  <form id="checkoutForm" style="display:flex;flex-direction:column;gap:12px;">
+    <input class="site-search" type="text" id="customerName" placeholder="Full Name" required style="width:100%;">
+    <input class="site-search" type="tel" id="phone" placeholder="Phone Number" required style="width:100%;">
+    <textarea class="site-search" id="address" placeholder="Full Address" required style="width:100%;min-height:80px;"></textarea>
+    <input class="site-search" type="text" id="pincode" placeholder="Pincode" required style="width:100%;">
+    <button type="submit" class="btn btn-primary" id="placeOrderBtn">Place Order</button>
+  </form>
+
+  <div id="orderResult" style="display:none;margin-top:20px;padding:16px;background:#EEF0FE;border-radius:8px;text-align:center;"></div>
+</div>
+
+<script src="/assets/js/supabase-client.js"></script>
+<script src="/assets/js/cart.js"></script>
+<script>
+  let cartBooks = [];
+
+  async function loadOrderSummary() {
+    const cart = getCart();
+    const bookIds = Object.keys(cart);
+    const el = document.getElementById('orderSummary');
+
+    if (bookIds.length === 0) {
+      el.innerHTML = '<p>Your cart is empty. <a href="/browse.html">Browse books</a></p>';
+      document.getElementById('placeOrderBtn').disabled = true;
+      return;
+    }
+
+    const { data, error } = await supabaseClient
+      .from('books')
+      .select('*')
+      .in('id', bookIds);
+
+    if (error || !data) {
+      el.innerHTML = '<p>Could not load cart. Please try again.</p>';
+      return;
+    }
+
+    cartBooks = data.map(book => ({ ...book, qty: cart[book.id] }));
+
+    let total = 0;
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    cartBooks.forEach(b => {
+      const lineTotal = b.price * b.qty;
+      total += lineTotal;
+      html += `<div style="display:flex;justify-content:space-between;">
+        <span>${escapeHtml(b.title)} x${b.qty}</span>
+        <span>₹${lineTotal}</span>
+      </div>`;
+    });
+    html += `<div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid #ddd;padding-top:8px;">
+      <span>Total</span><span>₹${total}</span>
+    </div></div>`;
+    el.innerHTML = html;
+  }
+
+  document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('placeOrderBtn');
+    btn.disabled = true;
+    btn.textContent = 'Placing order...';
+
+    const customer_name = document.getElementById('customerName').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const address = document.getElementById('address').value.trim();
+    const pincode = document.getElementById('pincode').value.trim();
+    const total_amount = cartBooks.reduce((sum, b) => sum + (b.price * b.qty), 0);
+
+    const { data: order, error: orderError } = await supabaseClient
+      .from('orders')
+      .insert({ customer_name, phone, address, pincode, total_amount })
+      .select()
+      .single();
+
+    if (orderError || !order) {
+      alert('Order failed. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Place Order';
+      return;
+    }
+
+    const items = cartBooks.map(b => ({
+      order_id: order.id,
+      book_id: b.id,
+      book_title: b.title,
+      price: b.price,
+      quantity: b.qty
+    }));
+
+    const { error: itemsError } = await supabaseClient.from('order_items').insert(items);
+
+    if (itemsError) {
+      alert('Order created but items failed to save. Contact support with order ID: ' + order.id);
+      return;
+    }
+
+    localStorage.removeItem(CART_KEY);
+    updateCartBadge();
+
+    document.getElementById('checkoutForm').style.display = 'none';
+    document.getElementById('orderSummary').style.display = 'none';
+    const resultEl = document.getElementById('orderResult');
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = `<h3>Order placed!</h3><p>Order ID: ${order.id}</p><p>We'll contact you soon on ${escapeHtml(phone)}.</p><a href="/index.html" class="btn btn-primary" style="margin-top:10px;display:inline-block;">Back to Home</a>`;
+  });
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  loadOrderSummary();
+</script>
+
+</body>
+</html>
