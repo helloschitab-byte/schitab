@@ -115,6 +115,9 @@
       alert('Order created but items failed to save. Contact support with order ID: ' + order.id);
       return;
     }
+    for (const b of cartBooks) {
+      await supabaseClient.from('books').update({ is_active: false }).eq('id', b.id);
+    }
 
     localStorage.removeItem(CART_KEY);
     updateCartBadge();
