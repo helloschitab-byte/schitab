@@ -20,6 +20,7 @@
     <button class="tab active" data-tab="books">Books</button>
     <button class="tab" data-tab="categories">Categories</button>
     <button class="tab" data-tab="used-books">Used Books</button>
+    <button class="tab" data-tab="orders">Orders</button>
   </div>
 
   <div class="container">
@@ -58,7 +59,15 @@
 
   </div>
 </div>
-
+<!-- ============ ORDERS TAB ============ -->
+    <div class="tab-panel" id="panel-orders">
+      <div class="card">
+        <div class="section-head">
+          <h2>Orders</h2>
+        </div>
+        <div id="ordersList"><div class="empty-state">Loading orders...</div></div>
+      </div>
+    </div>
 <!-- ============ BOOK MODAL ============ -->
 <div class="modal-overlay" id="bookModal">
   <div class="modal">
@@ -178,6 +187,7 @@
 <script src="/assets/js/categories.js"></script>
 <script src="/assets/js/books.js"></script>
 <script src="/assets/js/used-books.js"></script>
+  <script src="/assets/js/orders.js"></script>
 <script>
   // Tab switching
   document.querySelectorAll('.tab').forEach(tab => {
@@ -191,7 +201,8 @@
 
   // Init: guard, then load everything
   (async () => {
-    const auth = await requireAdmin();
+    const auth = await 
+      await loadOrders();requireAdmin();
     if (!auth) return;
     await loadCategories();
     await loadBooks();
