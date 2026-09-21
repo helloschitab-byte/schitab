@@ -37,6 +37,7 @@
 <script>
   const params = new URLSearchParams(window.location.search);
   let activeCat = params.get('cat') || '';
+  const urlSearch = params.get('search') || '';
 
   async function loadFilters() {
     const { data } = await supabaseClient
@@ -105,6 +106,8 @@
       `;
     }).join('');
   }
+
+  if (urlSearch) document.getElementById('searchInput').value = urlSearch;
 
   loadFilters();
   loadBooks();
