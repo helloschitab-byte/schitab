@@ -13,7 +13,7 @@
 <header class="site-header">
   <div class="site-header-row">
     <a href="/index.html" class="site-logo" style="text-decoration:none;">📚 Schitab</a>
-    <input class="site-search" type="text" placeholder="Search books, authors, exams..." disabled>
+    <input class="site-search" type="text" id="searchInput" placeholder="Search books, authors, exams...">
     <button class="cart-btn"onclick="window.location.href='/checkout.html'">🛒<span class="cart-badge" id="cartBadge" style="display:none;">0</span></button>
   </div>
 </header>
@@ -71,7 +71,12 @@
 
     let query = supabaseClient.from('books').select('*, categories(slug)').eq('is_active', true);
 
-    if (activeCat) {
+    const searchTerm = document.getElementById('searchInput').value.trim();
+    if (searchTerm) {
+      query = query.or(`title.ilike.%${searchTerm}%,author.ilike.%${searchTerm}%,publisher.ilike.%${searchTerm}%`);
+    }
+
+    if (activeCat) { {
       const { data: catRow } = await supabaseClient.from('categories').select('id').eq('slug', activeCat).single();
       if (catRow) query = query.eq('category_id', catRow.id);
     }
@@ -104,6 +109,12 @@
   loadFilters();
   loadBooks();
   updateCartBadge();
+
+  let searchTimeout;
+  document.getElementById('searchInput').addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(loadBooks, 400);
+  });
 </script>
 
 </body>
