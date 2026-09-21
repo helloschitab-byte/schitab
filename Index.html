@@ -25,7 +25,7 @@
       <h1>Books for <span class="accent-text">becoming.</span></h1>
       <p class="hero-tagline">NCERT, JKBOSE, competitive exams, used books — sourced for students across India.</p>
       <div class="hero-search-row">
-        <input class="site-search" type="text" placeholder="Search any book, exam or subject..." disabled>
+        <input class="site-search" type="text" id="heroSearch2" placeholder="Search any book, exam or subject..." onkeydown="if(event.key==='Enter') window.location.href='/browse.html?search='+encodeURIComponent(this.value)">
         <a href="/browse.html" class="btn btn-primary">Search</a>
       </div>
       <div class="popular-searches">
